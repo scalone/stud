@@ -1,0 +1,113 @@
+#! /bin/sh
+### BEGIN INIT INFO
+# Provides:          walk-server
+# Required-Start:    $riak
+# Required-Stop:     $riak
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: WalkServer
+# Description:       WalkServer
+### END INIT INFO
+
+# Author: Plano Bê <planobe@planobe.com.br>
+
+# PATH should only include /usr/* if it runs after the mountnfs.sh script
+PATH=/sbin:/usr/sbin:/bin:/usr/bin:/usr/local/bin
+NAME=walk-server
+DESC="WalkServer"
+SCRIPTNAME=/etc/init.d/$NAME
+
+RIAK_LOG_PATH=/var/log/riak/
+RIAK_RUN_PATH=/var/run/riak/
+RIAK_ETC_PATH=/etc/riak
+
+STUD_PEM_PATH=$RIAK_ETC_PATH/server.pem
+STUD_LOG=$RIAK_LOG_PATH/stud.log
+PIDFILE=$RIAK_RUN_PATH/stud.pid
+
+# Define LSB log_* functions.
+# Depend on lsb-base (>= 3.2-14) to ensure that this file is present
+# and status_of_proc is working.
+. /lib/lsb/init-functions
+
+#
+# Function that starts the daemon/service
+#
+# Return
+#   0 if daemon has been started
+#   1 if daemon was already running
+#   2 if daemon could not be started
+do_start()
+{
+  if [ -e $PIDFILE ]
+  then
+    RUNNING=$(ps ax | grep "stud --ssl -b" | grep -v -c grep)
+    if [ $RUNNING = 1 ]; then
+      return 1
+    fi
+  fi
+  nohup stud --ssl -b "127.0.0.1,8087" -f "*,8000" $STUD_PEM_PATH 1>>$STUD_LOG 2>>$STUD_LOG &
+  echo $! > $PIDFILE
+}
+
+do_stop()
+{
+  if [ -e $PIDFILE ]
+  then
+    kill -TERM `cat $PIDFILE`
+    rm -f $PIDFILE || return 0
+  else
+    return 1
+  fi
+}
+
+case "$1" in
+  start)
+  [ "$VERBOSE" != no ] && log_daemon_msg "Starting" "$NAME\n"
+  do_start
+  case "$?" in
+    0|1) [ "$VERBOSE" != no ] && log_end_msg 0 ;;
+    2) [ "$VERBOSE" != no ] && log_end_msg 1 ;;
+  esac
+  ;;
+  stop)
+  [ "$VERBOSE" != no ] && log_daemon_msg "Stopping" "$NAME\n"
+  do_stop
+  case "$?" in
+    0|1) [ "$VERBOSE" != no ] && log_end_msg 0 ;;
+    2) [ "$VERBOSE" != no ] && log_end_msg 1 ;;
+  esac
+  ;;
+  status)
+  status_of_proc -p $PIDFILE && exit 0 || exit $?
+  ;;
+  restart)
+  #
+  # If the "reload" option is implemented then remove the
+  # 'force-reload' alias
+  #
+  log_daemon_msg "Restarting " "$NAME\n"
+  do_stop
+  case "$?" in
+    0|1)
+    sleep 2
+    do_start
+    case "$?" in
+      0) log_end_msg 0 ;;
+      1) log_end_msg 1 ;; # Old process is still running
+      *) log_end_msg 1 ;; # Failed to start
+    esac
+    ;;
+    *)
+    # Failed to stop
+    log_end_msg 1
+    ;;
+  esac
+  ;;
+  *)
+  echo "Usage: $SCRIPTNAME {start|stop|status|restart}" >&2
+  exit 3
+  ;;
+esac
+
+:

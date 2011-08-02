@@ -15,8 +15,16 @@ echo "Schedule walk-server service"
 insserv $INIT_RIAK
 echo "Schedule riak service"
 
+# Configuring limits
+if [ -e /etc/security/limits.d ]
+then
+  echo "riak    hard    nofile  999999\nriak    soft    nofile  999999" > /etc/security/limits.d/riak.conf
+fi
+
 # Restarting riak
 $INIT_RIAK restart
 
 # Restarting walk-server
 $INIT_WALK_SERVER restart
+
+
